@@ -2,3 +2,4 @@ node_modules/
 # third-party receiver build, fetched by `npm run setup`
 vendor/uxplay/
 *.log
+vendor/gh/
