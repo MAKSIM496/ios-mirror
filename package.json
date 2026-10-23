@@ -1,0 +1,17 @@
+{
+  "name": "ios-mirror",
+  "version": "0.1.0",
+  "description": "Mirror an iPhone screen to Windows over Wi-Fi (AirPlay)",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-receiver.ps1",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^45.0.0"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

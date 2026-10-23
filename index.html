@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iOS Mirror</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; media-src 'self' blob:">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c0e12;
+    --surface: #13161c;
+    --raised: #1a1e26;
+    --line: #232834;
+    --line-strong: #323948;
+    --text: #e9ecf2;
+    --dim: #98a0b0;
+    --faint: #5f6778;
+    --accent: #4fd1c5;
+    --accent-ink: #06201d;
+    --accent-soft: rgba(79, 209, 197, .14);
+    --live: #46d39a;
+    --rec: #ff5d6c;
+    --rec-soft: rgba(255, 93, 108, .16);
+    --shadow: 0 18px 50px -18px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .35);
+    --ease: cubic-bezier(.16, 1, .3, 1);
+    --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #eef0f4;
+    --surface: #ffffff;
+    --raised: #f5f6f9;
+    --line: #e1e4eb;
+    --line-strong: #c9cedb;
+    --text: #151922;
+    --dim: #566074;
+    --faint: #8a93a5;
+    --accent: #0f9c8f;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(15, 156, 143, .12);
+    --live: #14a56b;
+    --rec: #e03a4b;
+    --rec-soft: rgba(224, 58, 75, .12);
+    --shadow: 0 18px 40px -20px rgba(30, 40, 70, .35), 0 2px 6px rgba(30, 40, 70, .1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; display: flex; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased;
+    transition: background-color .3s, color .3s;
+  }
+  ::selection { background: var(--accent-soft); color: var(--text); }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; border: 3px solid var(--surface); }
+  ::-webkit-scrollbar-track { background: transparent; }
+  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- sidebar ---------- */
+  aside {
+    width: 300px; flex: none; display: flex; flex-direction: column;
+    background: var(--surface); border-right: 1px solid var(--line);
+    padding: 20px 20px 16px; gap: 20px; overflow-y: auto;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo {
+    width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .brand .sp { flex: 1; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px 0 10px;
+    border-radius: 999px; background: var(--raised); border: 1px solid var(--line);
+    color: var(--dim); font-size: 12.5px; align-self: flex-start; transition: color .3s, border-color .3s;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); position: relative; transition: background .3s; }
+  body[data-state="waiting"] .dot { background: var(--accent); }
+  body[data-state="waiting"] .dot::after, body[data-state="live"] .dot::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; background: inherit;
+    animation: ping 2s var(--ease) infinite;
+  }
+  body[data-state="live"] .dot { background: var(--live); }
+  body[data-state="live"] .pill { color: var(--text); border-color: color-mix(in srgb, var(--live) 45%, var(--line)); }
+  @keyframes ping { 0% { transform: scale(1); opacity: .7; } 80%, 100% { transform: scale(3.2); opacity: 0; } }
+
+  /* collapsible connect guide */
+  .guide { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .5s var(--ease), opacity .4s; }
+  .guide > div { overflow: hidden; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  body[data-state="live"] .guide { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+  .qr { background: #fff; border-radius: 12px; padding: 10px; align-self: flex-start; box-shadow: var(--shadow); animation: rise .7s var(--ease) both; }
+  .qr img { display: block; width: 168px; height: 168px; image-rendering: pixelated; }
+  @media (max-height: 720px) { aside { gap: 14px; padding-top: 16px; } .qr img { width: 144px; height: 144px; } .qr-cap { display: none; } }
+  .qr-cap { font-size: 12.5px; color: var(--faint); margin-top: -6px; }
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: s; }
+  ol.steps li { display: flex; gap: 12px; color: var(--dim); counter-increment: s; animation: rise .6s var(--ease) both; }
+  ol.steps li:nth-child(2) { animation-delay: .06s; } ol.steps li:nth-child(3) { animation-delay: .12s; }
+  ol.steps li::before {
+    content: counter(s); flex: none; width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+    background: var(--raised); border: 1px solid var(--line-strong); color: var(--text);
+  }
+  ol.steps b { color: var(--text); font-weight: 600; }
+  .host {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; margin-top: 2px;
+    border-radius: 7px; border: 1px solid var(--line-strong); background: var(--raised);
+    color: var(--text); font: 600 12.5px var(--font); cursor: pointer; transition: border-color .2s, background .2s;
+  }
+  .host:hover { border-color: var(--accent); }
+  .host .i { width: 14px; height: 14px; color: var(--dim); }
+  .host.copied .i { color: var(--live); }
+
+  .live-card { display: none; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); animation: rise .6s var(--ease) both; }
+  body[data-state="live"] .live-card { display: flex; }
+  .live-card .i { color: var(--live); width: 22px; height: 22px; }
+  .live-card small { display: block; color: var(--dim); font-size: 12.5px; }
+  .live-card b { font-weight: 600; }
+
+  .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; }
+  .switch {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px;
+    border-radius: 12px; border: 1px solid var(--line); background: var(--raised); cursor: pointer; user-select: none;
+  }
+  .switch span small { display: block; color: var(--faint); font-size: 12px; }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .track { width: 38px; height: 22px; border-radius: 99px; background: var(--line-strong); position: relative; transition: background .25s; flex: none; }
+  .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: transform .35s var(--ease); }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(16px); }
+  .switch:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- stage ---------- */
+  main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative;
+    background: radial-gradient(900px 500px at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%), var(--bg); }
+  .stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: 28px 28px 8px; position: relative; }
+
+  .frame {
+    max-width: 100%; max-height: 100%; border-radius: 18px; padding: 6px; background: var(--raised);
+    border: 1px solid var(--line-strong); box-shadow: var(--shadow); display: none;
+    animation: reveal .8s var(--ease) both; position: relative; overflow: hidden;
+  }
+  body[data-state="live"] .frame { display: block; }
+  video { display: block; max-width: 100%; max-height: calc(100vh - 150px); border-radius: 13px; background: #000; }
+  body[data-rec="1"] .frame { border-color: var(--rec); box-shadow: var(--shadow), 0 0 0 4px var(--rec-soft); }
+  @keyframes reveal { from { opacity: 0; transform: translateY(14px) scale(.96); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .empty { text-align: center; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  body[data-state="live"] .empty { display: none; }
+  .empty h2 { margin: 18px 0 0; font-size: 20px; font-weight: 650; letter-spacing: -.015em; text-wrap: balance; }
+  .empty p { margin: 0; color: var(--dim); text-wrap: pretty; }
+  .radar { position: relative; width: 150px; height: 150px; display: grid; place-items: center; color: var(--accent); }
+  .radar .ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--accent); opacity: 0; animation: radar 3.6s var(--ease) infinite; }
+  .radar .ring:nth-child(2) { animation-delay: 1.2s; } .radar .ring:nth-child(3) { animation-delay: 2.4s; }
+  body:not([data-state="waiting"]) .radar .ring { animation: none; }
+  .radar .core { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); animation: float 4s ease-in-out infinite; }
+  .radar .core .i { width: 30px; height: 30px; stroke-width: 1.5; }
+  body:not([data-state="waiting"]) .radar .core { color: var(--faint); background: var(--raised); border-color: var(--line); animation: none; }
+  @keyframes radar { 0% { transform: scale(.4); opacity: .55; } 100% { transform: scale(1.1); opacity: 0; } }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+
+  /* ---------- dock ---------- */
+  .dock-wrap { display: grid; place-items: center; padding: 8px 20px 22px; }
+  .dock {
+    display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 16px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+    animation: rise .7s var(--ease) .1s both;
+  }
+  .dock .sep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; }
+  .btn {
+    position: relative; height: 40px; min-width: 40px; padding: 0 12px; border-radius: 11px; border: 0; background: transparent;
+    color: var(--text); font: 500 13.5px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    transition: background .2s, transform .35s var(--ease), color .2s;
+  }
+  .btn:hover:not(:disabled) { background: var(--raised); }
+  .btn:active:not(:disabled) { transform: scale(.94); }
+  .btn:disabled { color: var(--faint); cursor: default; opacity: .6; }
+  .btn.icon { padding: 0; width: 40px; }
+  .btn kbd { font: 600 11px var(--font); color: var(--faint); border: 1px solid var(--line-strong); border-radius: 5px; padding: 0 5px; height: 18px; display: inline-grid; place-items: center; }
+  .btn.recording { background: var(--rec-soft); color: var(--rec); }
+  .btn.recording .i { animation: blink 1.2s ease-in-out infinite; fill: currentColor; }
+  .btn .timer { font-variant-numeric: tabular-nums; min-width: 38px; text-align: left; }
+  @keyframes blink { 50% { opacity: .35; } }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; border-radius: 0; }
+  .flash.go { animation: flash .45s ease-out; }
+  @keyframes flash { 0% { opacity: .55; } 100% { opacity: 0; } }
+
+  .select { position: relative; display: inline-flex; align-items: center; }
+  .select select {
+    appearance: none; height: 40px; max-width: 200px; padding: 0 30px 0 12px; border-radius: 11px; border: 0;
+    background: transparent; color: var(--dim); font: 500 13px var(--font); cursor: pointer; text-overflow: ellipsis;
+  }
+  .select select:hover { background: var(--raised); color: var(--text); }
+  .select .i { position: absolute; right: 8px; width: 14px; height: 14px; pointer-events: none; color: var(--faint); }
+  .select option { background: var(--surface); color: var(--text); }
+
+  /* tooltips */
+  [data-tip]::after {
+    content: attr(data-tip); position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translate(-50%, 4px);
+    white-space: nowrap; padding: 5px 9px; border-radius: 7px; background: var(--text); color: var(--bg);
+    font: 500 12px var(--font); opacity: 0; pointer-events: none; transition: opacity .18s, transform .3s var(--ease);
+  }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+  .brand [data-tip]::after { bottom: auto; top: calc(100% + 8px); left: auto; right: 0; transform: translate(0, -4px); }
+  .brand [data-tip]:hover::after { transform: none; }
+
+  /* toast */
+  .toast {
+    position: fixed; right: 20px; top: 20px; display: flex; align-items: center; gap: 10px; max-width: 360px;
+    padding: 11px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow); transform: translateY(-16px); opacity: 0; pointer-events: none;
+    transition: transform .5s var(--ease), opacity .3s;
+  }
+  .toast.show { transform: none; opacity: 1; }
+  .toast .i { color: var(--live); }
+  .toast.err .i { color: var(--rec); }
+  .toast span { overflow-wrap: anywhere; font-size: 13px; }
+
+  @media (max-width: 860px) { aside { width: 240px; padding: 16px; } .qr img { width: 160px; height: 160px; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body data-state="waiting">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.6"/><path d="M10.5 18.5h3"/><path d="M3 9.5c1-1.2 1.8-1.8 2.6-2M21 9.5c-1-1.2-1.8-1.8-2.6-2" /></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.8"/><path d="M10.5 18h3"/></symbol>
+  <symbol id="i-shot" viewBox="0 0 24 24"><path d="M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.2A8 8 0 0 1 9.8 4 8 8 0 1 0 20 14.2Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M5 12.5a7 7 0 0 1 14 0M8 14.5a4 4 0 0 1 8 0"/><circle cx="12" cy="18" r="1" /></symbol>
+</svg>
+
+<aside>
+  <div class="brand">
+    <div class="logo"><svg class="i"><use href="#i-logo"/></svg></div>
+    <h1>iOS Mirror</h1>
+    <span class="sp"></span>
+    <button class="btn icon" id="theme" aria-label="Сменить тему" data-tip="Сменить тему"><svg class="i"><use id="themeIcon" href="#i-sun"/></svg></button>
+  </div>
+
+  <div class="pill" role="status" aria-live="polite"><span class="dot"></span><span id="state">Запуск приёмника…</span></div>
+
+  <div class="guide"><div>
+    <div class="qr" id="qrBox" hidden><img id="qr" alt="QR-код со страницей-инструкцией для iPhone"></div>
+    <div class="qr-cap" id="qrCap" hidden>Откроет инструкцию на iPhone</div>
+    <ol class="steps">
+      <li><span>Подключи iPhone к той же Wi-Fi сети, что и этот ПК.</span></li>
+      <li><span>Пункт управления → <b>Повтор экрана</b>.</span></li>
+      <li><span>Выбери в списке<br><button class="host" id="host" aria-label="Скопировать имя ПК"><span id="hostName">…</span><svg class="i"><use id="hostIcon" href="#i-copy"/></svg></button></span></li>
+    </ol>
+  </div></div>
+
+  <div class="live-card">
+    <svg class="i"><use href="#i-phone"/></svg>
+    <div><b>iPhone подключён</b><small id="liveName">Трансляция идёт</small></div>
+  </div>
+
+  <div class="side-foot">
+    <label class="switch">
+      <span>Приёмник AirPlay<small id="recvHint">Виден для iPhone в сети</small></span>
+      <input type="checkbox" id="toggle" checked>
+      <span class="track"></span>
+    </label>
+  </div>
+</aside>
+
+<main>
+  <div class="stage">
+    <div class="frame"><video id="video" autoplay muted playsinline></video><div class="flash" id="flash"></div></div>
+    <div class="empty" id="empty">
+      <div class="radar"><i class="ring"></i><i class="ring"></i><i class="ring"></i><div class="core"><svg class="i"><use href="#i-phone"/></svg></div></div>
+      <h2 id="emptyTitle">Ждём iPhone</h2>
+      <p id="emptyText">Включи «Повтор экрана» на телефоне и выбери этот ПК, картинка появится здесь сама.</p>
+    </div>
+  </div>
+
+  <div class="dock-wrap">
+    <div class="dock" role="toolbar" aria-label="Управление трансляцией">
+      <div class="select" data-tip="Окно трансляции">
+        <select id="src" aria-label="Окно трансляции"></select>
+        <svg class="i"><use href="#i-chev"/></svg>
+      </div>
+      <span class="sep"></span>
+      <button class="btn" id="shot" disabled data-tip="Сохранить кадр"><svg class="i"><use href="#i-shot"/></svg>Скриншот <kbd>S</kbd></button>
+      <button class="btn" id="rec" disabled data-tip="Начать запись"><svg class="i" id="recSvg"><use id="recIcon" href="#i-rec"/></svg><span id="recLabel">Запись</span> <kbd id="recKbd">R</kbd></button>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><svg class="i"><use id="toastIcon" href="#i-check"/></svg><span id="toastText"></span></div>
+<script src="renderer.js"></script>
+</body>
+</html>
